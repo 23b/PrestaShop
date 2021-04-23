@@ -182,10 +182,10 @@ class TranslateCore
     ) {
         global $_MODULES, $_MODULE, $_LANGADM;
 
-        static $langCache = [];
+        static $langCache = array();
         // $_MODULES is a cache of translations for all module.
         // $translations_merged is a cache of wether a specific module's translations have already been added to $_MODULES
-        static $translationsMerged = [];
+        static $translationsMerged = array();
 
         $name = $module instanceof Module ? $module->name : $module;
 
@@ -198,22 +198,23 @@ class TranslateCore
         }
 
         if (!isset($translationsMerged[$name][$iso])) {
-            $filesByPriority = [
+            $translationsMerged[$name][$iso] = false;
+            $filesByPriority = array(
+                // Translations in theme
+                _PS_THEME_DIR_ . 'modules/' . $name . '/translations/' . $iso . '.php',
+                _PS_THEME_DIR_ . 'modules/' . $name . '/' . $iso . '.php',
                 // PrestaShop 1.5 translations
                 _PS_MODULE_DIR_ . $name . '/translations/' . $iso . '.php',
                 // PrestaShop 1.4 translations
                 _PS_MODULE_DIR_ . $name . '/' . $iso . '.php',
-                // Translations in theme
-                _PS_THEME_DIR_ . 'modules/' . $name . '/translations/' . $iso . '.php',
-                _PS_THEME_DIR_ . 'modules/' . $name . '/' . $iso . '.php',
-            ];
+            );
             foreach ($filesByPriority as $file) {
                 if (file_exists($file)) {
                     include_once $file;
                     $_MODULES = !empty($_MODULES) ? array_merge($_MODULES, $_MODULE) : $_MODULE;
+                    $translationsMerged[$name][$iso] = true;
                 }
             }
-            $translationsMerged[$name][$iso] = true;
         }
 
         $string = preg_replace("/\\\*'/", "\'", $originalString);
@@ -221,7 +222,7 @@ class TranslateCore
 
         $cacheKey = $name . '|' . $string . '|' . $source . '|' . (int) $js . '|' . $iso;
         if (isset($langCache[$cacheKey])) {
-            $ret = $langCache[$cacheKey];
+            $ret = 'cache'.$langCache[$cacheKey];
         } else {
             $currentKey = strtolower('<{' . $name . '}' . _THEME_NAME_ . '>' . $source) . '_' . $key;
             $defaultKey = strtolower('<{' . $name . '}prestashop>' . $source) . '_' . $key;
@@ -231,8 +232,11 @@ class TranslateCore
                 $currentKeyFile = strtolower('<{' . $name . '}' . _THEME_NAME_ . '>' . $file) . '_' . $key;
                 $defaultKeyFile = strtolower('<{' . $name . '}prestashop>' . $file) . '_' . $key;
             }
-
-            if (isset($currentKeyFile) && !empty($_MODULES[$currentKeyFile])) {
+            
+            if($translationsMerged[$name][$iso] == false){
+                // do not use what ever is in $MODULES becauses its not what we are looking for
+                $ret = stripslashes($string);
+            } elseif (isset($currentKeyFile) && !empty($_MODULES[$currentKeyFile])) {
                 $ret = stripslashes($_MODULES[$currentKeyFile]);
             } elseif (isset($defaultKeyFile) && !empty($_MODULES[$defaultKeyFile])) {
                 $ret = stripslashes($_MODULES[$defaultKeyFile]);
@@ -267,9 +271,9 @@ class TranslateCore
         }
 
         if (!is_array($sprintf) && null !== $sprintf) {
-            $sprintf_for_trans = [$sprintf];
+            $sprintf_for_trans = array($sprintf);
         } elseif (null === $sprintf) {
-            $sprintf_for_trans = [];
+            $sprintf_for_trans = array();
         } else {
             $sprintf_for_trans = $sprintf;
         }
